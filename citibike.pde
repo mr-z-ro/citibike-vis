@@ -3,6 +3,7 @@ PFont myFont=createFont("Arial", 12);
 
 // List of CitiBike stations
 ArrayList<Station> stations;
+ArrayList<LinearAnimation> animations;
 
 // Initialized list of citibike geo-extrema
 // Note that these are initialized to intentionally ridiculous values 
@@ -21,9 +22,13 @@ int sHeight = 600;
 // URL for Map Background
 String mapBgUrl;
 
+// Image for Map Background
+PImage mapBg;
+
 void setup() {
   loadStopData();
   loadMapAndBounds();
+  prepareAnimations();
   textFont(myFont);
 }
 
@@ -37,12 +42,13 @@ void loadStopData() {
 
   // Parse into native objects
   stations = new ArrayList<Station>();
+  animations = new ArrayList<LinearAnimation>();
   JSONArray stationsArr = stationsJson.getJSONArray("stationBeanList");
   double stationMinLat = 360;
   double stationMaxLat = -360;
   double stationMinLon = 360;
   double stationMaxLon = -360;
-  for (int i=0; i<stationsArr.size (); i++) {
+  for (int i=0; i<stationsArr.size(); i++) {
     Station station = new Station(stationsArr.getJSONObject(i));
     stations.add(station);
     stationMinLat = (station.latitude < minLat) ? station.latitude : minLat;
@@ -50,7 +56,8 @@ void loadStopData() {
     stationMinLon = (station.longitude < minLon) ? station.longitude : minLon;
     stationMaxLon = (station.longitude > maxLon) ? station.longitude : maxLon;
   }
-
+  
+  // Calculate Center
   println("Station Lat Range: " + stationMinLat + " to " + stationMaxLat);
   centerLat = (stationMinLat + stationMaxLat) / 2;
   println("Station Lon Range: " + stationMinLon + " to " + stationMaxLon);
@@ -83,31 +90,56 @@ void loadMapAndBounds() {
   //setCorners(latLon, 12, sWidth, sHeight);
   
   // Draw the static Google map
-  background(loadImage(mapBgUrl, "png"));
+  mapBg = loadImage(mapBgUrl, "png");
+  background(mapBg);
+}
+
+void prepareAnimations() {
+  // Create Animation Objects
+  for (Station station : stations) {
+    Coord initialPos = new Coord(0, sHeight);
+    Coord finalPos = new Coord(lonToX(station.longitude), latToY(station.latitude));
+    float percentageAvailable = (float)station.availableDocks / (float)station.totalDocks;
+    color col;
+    int numSteps = 20;
+    if (percentageAvailable > 0.67) {
+      col = color(0, 255, 0, 255);
+      numSteps = int(3 * numSteps);
+    } else if (percentageAvailable > 0.33) {
+      col = color(255, 255, 0, 255);
+      numSteps = int(2 * numSteps); // slight delay
+    } else {
+      col = color(255, 0, 0, 255);
+      numSteps = int(1 * numSteps); // more delay
+    }
+    LinearAnimation anim = new LinearAnimation(initialPos, finalPos, numSteps, col);
+    anim.associatedText = station.stationName;
+    animations.add(anim);
+  }
 }
 
 void drawStops() {
+  // Redraw the bg to clear previous frames
+  background(mapBg);
+  
   // Initialize some variables to reuse
-  int x; // horizontal pixel location on sketch
-  int y; // vertical pixel location on sketch
-  float percentageAvailable; // percentage of bikes available at the location
-  for (Station station : stations) {
-    x = lonToX(station.longitude);
-    y = latToY(station.latitude);
-    percentageAvailable = (float)station.availableDocks / (float)station.totalDocks;
-    if (percentageAvailable > 0.67) {
-      fill(color(0, 255, 0, 255)); 
-    } else if (percentageAvailable > 0.33) {
-      fill(color(255, 255, 0, 255));
+  for (LinearAnimation anim : animations) {
+    fill(anim.shapeColor);
+    if (!anim.isComplete) {
+      noStroke(); 
     } else {
-      fill(color(255, 0, 0, 255));
+      stroke(color(0, 0, 0, 80));
     }
-    noStroke();
-    ellipse(x, y, 4, 4);
-    if(dist(mouseX,mouseY,x,y)<=2){
+    int finalRad = 4;
+    float percentComplete = (float)anim.currentPos.x / (float)(anim.finalPos.x - anim.initialPos.x);
+    int currentRad = (int)((percentComplete > 0) ? 4 / percentComplete : 0);
+    ellipse(anim.currentPos.x, anim.currentPos.y, currentRad, currentRad);
+    if(dist(mouseX,mouseY,anim.currentPos.x,anim.currentPos.y)<=2){
       fill(0);
-      text(station.stationName,mouseX-20,mouseY-10);
+      //text(station.stationName,mouseX-20,mouseY-10);
+      text(anim.associatedText, mouseX-20, mouseY-10);
     }
+    anim.step();
   }
 }
 
