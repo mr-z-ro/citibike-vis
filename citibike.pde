@@ -1,5 +1,5 @@
 // Font for hovering
-PFont myFont=createFont("Arial", 12);
+PFont myFont=createFont("Arial", 18);
 
 // List of CitiBike stations
 ArrayList<Station> stations;
@@ -113,7 +113,7 @@ void prepareAnimations() {
       numSteps = int(1 * numSteps); // more delay
     }
     LinearAnimation anim = new LinearAnimation(initialPos, finalPos, numSteps, col);
-    anim.associatedText = station.stationName;
+    anim.associatedText = station.stationName + "\n" + station.availableDocks + "/" + station.totalDocks + " Available (" + int(percentageAvailable*100) + "%)";
     animations.add(anim);
   }
 }
@@ -121,6 +121,9 @@ void prepareAnimations() {
 void drawStops() {
   // Redraw the bg to clear previous frames
   background(mapBg);
+  
+  // Initialize text to display
+  String text = null;
   
   // Initialize some variables to reuse
   for (LinearAnimation anim : animations) {
@@ -134,12 +137,17 @@ void drawStops() {
     float percentComplete = (float)anim.currentPos.x / (float)(anim.finalPos.x - anim.initialPos.x);
     int currentRad = (int)((percentComplete > 0) ? 4 / percentComplete : 0);
     ellipse(anim.currentPos.x, anim.currentPos.y, currentRad, currentRad);
-    if(dist(mouseX,mouseY,anim.currentPos.x,anim.currentPos.y)<=2){
-      fill(0);
-      //text(station.stationName,mouseX-20,mouseY-10);
-      text(anim.associatedText, mouseX-20, mouseY-10);
+    if(dist(mouseX,mouseY,anim.currentPos.x,anim.currentPos.y)<=4){
+      text = anim.associatedText;
     }
     anim.step();
+  }
+  
+  // if there is text, draw it over the top of everything
+  if (text != null) {
+    fill(0, 80, 100);
+    //text(station.stationName,mouseX-20,mouseY-10);
+    text(text, mouseX-20, mouseY-10);
   }
 }
 
